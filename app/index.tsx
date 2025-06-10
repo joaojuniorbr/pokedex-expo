@@ -1,93 +1,75 @@
-import { pokemonType } from '@/common';
-import { Header, PokemonCard } from '@/components/molecules';
-import { useSearch } from '@/hooks';
+import { Button, View, Alert, TextInput, Text, Pressable } from 'react-native';
+
 import { tw } from '@/theme';
+
 import { useState } from 'react';
-import { FlatList, Pressable, View } from 'react-native';
-import { Modal, Text, ActivityIndicator } from 'react-native-paper';
-import { AntDesign } from '@expo/vector-icons';
+import {
+	signInWithEmailAndPassword,
+	sendPasswordResetEmail,
+} from 'firebase/auth';
+import { authFirebase } from '@/common/firebaseConfig';
+import { useAuth } from '@/hooks';
+import { useRouter } from 'expo-router';
 
-export default function Index() {
-	const [showFilter, setShowFilter] = useState(false);
-	const [type, setType] = useState<string>();
-	const limit = 20;
+export default function IndexPage() {
+	const router = useRouter();
 
-	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } =
-		useSearch({
-			type,
-			limit,
-		});
+	const { user } = useAuth();
 
-	const toggleFilter = () => setShowFilter(!showFilter);
+	const [email, setEmail] = useState('');
+	const [password, setPassword] = useState('');
 
-	const loadMore = () => {
-		if (hasNextPage) {
-			fetchNextPage();
+	const handleSignIn = async () => {
+		try {
+			await signInWithEmailAndPassword(authFirebase, email, password);
+			Alert.alert('Login realizado com sucesso');
+		} catch (error: any) {
+			Alert.alert('Erro ao logar', error.message);
 		}
 	};
 
-	const countFilter = () => {
-		return Boolean(type) ? 1 : 0;
+	const handleResetPassword = async () => {
+		try {
+			await sendPasswordResetEmail(authFirebase, email);
+			Alert.alert('Email de recuperação enviado');
+		} catch (error: any) {
+			Alert.alert('Erro ao enviar email de recuperação', error.message);
+		}
 	};
 
+	if (user) {
+		router.push('/(tabs)/home');
+	}
+
 	return (
-		<View style={{ flex: 1 }}>
-			<Header onShowFilter={toggleFilter} countFilter={countFilter()} />
+		<View style={tw`flex-1 items-center justify-center bg-white p-8`}>
+			<View style={tw`w-full gap-4`}>
+				<Text style={tw`text-2xl font-bold mb-4`}>Acessar Pokedex</Text>
+				<TextInput
+					keyboardType='email-address'
+					autoCapitalize='none'
+					autoComplete='email'
+					placeholder='Email'
+					onChangeText={setEmail}
+					style={tw`border border-gray-300 p-2 rounded w-full`}
+				/>
+				<TextInput
+					placeholder='Senha'
+					secureTextEntry
+					onChangeText={setPassword}
+					style={tw`border border-gray-300 p-2 rounded w-full`}
+				/>
 
-			<FlatList
-				data={data?.pages.flatMap((page) => page.data) ?? []}
-				renderItem={({ item }) => <PokemonCard pokemonId={item.name} />}
-				ItemSeparatorComponent={() => (
-					<View style={tw`border-t border-slate-200`} />
-				)}
-				onEndReached={loadMore}
-				onEndReachedThreshold={0.5}
-				ListFooterComponent={
-					isFetchingNextPage ? (
-						<View style={tw`py-4`}>
-							<ActivityIndicator />
-						</View>
-					) : null
-				}
-				style={{ flex: 1 }}
-			/>
+				<Button title='Acessar' onPress={handleSignIn} />
 
-			<Modal visible={showFilter} onDismiss={toggleFilter}>
-				<View style={tw`bg-white p-6`}>
-					<Text style={tw`font-bold text-lg mb-8`}>Escolha um tipo:</Text>
-
-					<View style={tw`flex-row gap-4 flex-wrap`}>
-						{pokemonType.map((item) => {
-							const isSelected = type === item.id;
-							return (
-								<Pressable
-									key={item.id}
-									style={tw`flex-row gap-2 items-center p-2 border-[${
-										item.color
-									}] border rounded bg-[${
-										isSelected ? 'transparent' : item.color
-									}] `}
-									onPress={() => {
-										setType(isSelected ? undefined : item.id);
-										refetch();
-										toggleFilter();
-									}}
-								>
-									<Text
-										style={tw`text-xs font-bold text-[${
-											isSelected ? item.color : 'white'
-										}]`}
-									>
-										{item.name}
-									</Text>
-
-									{isSelected && <AntDesign name='close' color={item.color} />}
-								</Pressable>
-							);
-						})}
-					</View>
-				</View>
-			</Modal>
+				<Pressable onPress={handleResetPassword} style={tw`mt-4`}>
+					<Text
+						style={tw`text-stone-400 font-bold text-center text-xs uppercase`}
+					>
+						Esqueci minha senha
+					</Text>
+				</Pressable>
+			</View>
 		</View>
 	);
 }
